@@ -1,6 +1,7 @@
 include("block.jl")
 include("transaction.jl")
 
+
 mutable struct Blockchain
     chain :: Array{Block}
     difficulty :: Int8
@@ -49,6 +50,10 @@ end
 
 
 function mine_pending_trans(chain, minerRewardAddress)
+    
+    rewardTrans = Transaction("System", minerRewardAddress, chain.reward)
+    push!(chain.pendingTransactions, rewardTrans)
+    
     newBlock = create_block(chain.pendingTransactions)
     mine_block(chain, newBlock)
     newBlock.prevHash = get_lastblock(chain).hash
@@ -57,9 +62,7 @@ function mine_pending_trans(chain, minerRewardAddress)
     push!(chain.chain, newBlock)
     print("Block Added\n")
     
-    rewardTrans = Transaction("System", minerRewardAddress, chain.reward)
     chain.pendingTransactions = Array{Transaction}[]
-    push!(chain.pendingTransactions, rewardTrans)
 end
 
 
