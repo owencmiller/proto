@@ -1,30 +1,85 @@
 using WebSockets
-const BAREHTML = "<head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">
- <title>Empty.html</title></head><body></body></html>"
-import Sockets
+using Sockets
+using UUIDs
 const LOCALIP = string(Sockets.getipaddr())
-const PORT = 443
+const PORT = 8080
+
+struct Client
+    uuid :: UUID
+    ws :: WebSocket
+    username :: string
+end
+
+struct Message
+    uuid :: UUID
+    sender :: String
+    message :: string
+end
+
+
+const clients = []
+
+
+function verifyusername(name)
+    if name == ""
+        return false
+    end
+    for client in clients
+        if client.username == name
+            return false
+        end
+    end
+    return true
+end
+
+function addclient(ws, username)
+    uuid = uuid4()
+    push!(clients, Client(uuid, ws, username))
+    return uuid
+end
+
+function removeclient(uuid)
+    deleteat!(clients, findall(x->x.uuid==uuid, clients))
+end 
+
+function getusernamefromclient(ws)
+    writeguarded(ws, "You have successfully connected to ProtoNet")
+    while true
+        writeguarded(ws, "Enter a username:")
+        data, = readguarded(ws)
+        s = String(data)
+        if !verifyusername(s)
+            writeguarded(ws, "That username is taken. Please choose a different username.")
+        else
+            return s
+        end
+    end
+end
 
 function coroutine(req, ws)
-    @info "Started coroutine for " ws
+    @info "New Incoming Connection"
+    username = getusernamefromclient(ws)
+    uuid = addclient(ws, username)
+    @info "New client connected: $username"
+
     while isopen(ws)
         data, = readguarded(ws)
         s = String(data)
-        if s == ""
+        if s == "/exit"
             writeguarded(ws, "Goodbye!")
             break
         end
-        @info "Received: $s"
-        writeguarded(ws, "Hello! Type 'exit' to leave")
+        @info "$username: $s"
     end
-    @info "Will now close " ws
+    
+    removeclient(uuid)
+    @info "Client disconnected: $username"
 end
 
-handle(req) = replace(BAREHTML, "<body></body>" => BODY) |> WebSockets.Response
+const server = WebSockets.ServerWS((req) -> WebSockets.Response(200), coroutine)
 
-const server = WebSockets.ServerWS(handle, coroutine)
-
-@info "In browser > $LOCALIP:$PORT , F12> console > ws = new WebSocket(\"ws://$LOCALIP:$PORT\") "
+@info "In browser > $LOCALIP:8080 , F12> console > ws = new WebSocket(\"ws:/$LOCALIP:8080\") "
 @async WebSockets.with_logger(WebSocketLogger()) do
-    WebSockets.serve(server, LOCALIP, PORT)
+    WebSockets.serve(server, LOCALIP, 8080)
 end
+
