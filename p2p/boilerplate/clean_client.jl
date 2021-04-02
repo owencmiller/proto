@@ -1,21 +1,22 @@
 using WebSockets
 function client_one_message(ws)
+    @async reading(ws)
     while isopen(ws)
-        printstyled(stdout, "\nws|client input >  ", color=:green)
+        #printstyled(stdout, "\nws|client input >  ", color=:green)
         msg = readline(stdin)
-        if writeguarded(ws, msg)
-            msg, stillopen = readguarded(ws)
-            println("Received: ", String(msg))
-            if stillopen
-                println("The connection is active.")
-            else
-                println("Disconnect during reading.")
-            end
-        else
-            println("Disconnect during writing.")
-        end
+        writeguarded(ws, msg)
     end
 end
+
+function reading(ws)
+    while isopen(ws)
+        msg, stillopen = readguarded(ws)
+        println("Recieved:", String(msg))
+    end
+end
+
+
+
 function main()
     while true
         println("\nSuggestion: Run 'minimal_server.jl' in another REPL")

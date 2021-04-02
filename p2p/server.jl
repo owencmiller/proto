@@ -7,13 +7,13 @@ const PORT = 8080
 struct Client
     uuid :: UUID
     ws :: WebSocket
-    username :: string
+    username :: String
 end
 
 struct Message
     uuid :: UUID
     sender :: String
-    message :: string
+    message :: String
 end
 
 
@@ -56,6 +56,14 @@ function getusernamefromclient(ws)
     end
 end
 
+function broadcastmessage(useruuid, message)
+    for client in clients
+        if client.uuid != useruuid
+            writeguarded(client.ws, message)
+        end
+    end
+end
+
 function coroutine(req, ws)
     @info "New Incoming Connection"
     username = getusernamefromclient(ws)
@@ -70,6 +78,7 @@ function coroutine(req, ws)
             break
         end
         @info "$username: $s"
+        broadcastmessage(uuid, s)
     end
     
     removeclient(uuid)
@@ -79,7 +88,7 @@ end
 const server = WebSockets.ServerWS((req) -> WebSockets.Response(200), coroutine)
 
 @info "In browser > $LOCALIP:8080 , F12> console > ws = new WebSocket(\"ws:/$LOCALIP:8080\") "
-@async WebSockets.with_logger(WebSocketLogger()) do
+WebSockets.with_logger(WebSocketLogger()) do
     WebSockets.serve(server, LOCALIP, 8080)
 end
 
